@@ -51,9 +51,16 @@ extern YYSTYPE cool_yylval;
 /*
  * Define names for regular expressions here.
  */
+ 
+COMMENT_TYPE1		--.*\n
+COMMENT_TYPE2		\(\*(.|(\\\n))*\*\)
 
-
+ASSIGN			<-
 DARROW          	=>
+LE			<=
+
+SINGLE_CHAR_OPERATOR	[;{}(,):@.+\-*\/~<=]
+
 
 CASE			(?i:case)
 CLASS			(?i:class)
@@ -76,8 +83,12 @@ WHILE			(?i:while)
 true			t(?i:rue)
 false			f(?i:alse)
 
-TYPEID			[A-Z][a-zA-Z0-9]*
-OBJECTID		[a-z][a-zA-Z0-9]*
+
+TYPEID			[A-Z][a-zA-Z0-9_]*
+OBJECTID		[a-z][a-zA-Z0-9_]*
+
+INT_CONST		[0-9]+
+STR_CONST		\".*\"
 
 
 %%
@@ -86,12 +97,18 @@ OBJECTID		[a-z][a-zA-Z0-9]*
   *  Nested comments
   */
 
+{COMMENT_TYPE1}		
+{COMMENT_TYPE2}
 
  /*
   *  The multiple-character operators.
   */
 
-{DARROW}		{ return (DARROW); }
+{ASSIGN}		{ return (ASSIGN); 	}
+{DARROW}		{ return (DARROW); 	}
+{LE}			{ return (LE); 		}
+
+{SINGLE_CHAR_OPERATOR}	{ return (*yytext);	}
 
  /*
   * Keywords are case-insensitive except for the values true and false,
@@ -127,10 +144,11 @@ OBJECTID		[a-z][a-zA-Z0-9]*
   *
   */
   
-{TYPEID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (TYPEID);   } 
-{OBJECTID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (OBJECTID); } 
+{TYPEID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (TYPEID);	} 
+{OBJECTID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (OBJECTID);	} 
+
+{INT_CONST}		{ cool_yylval.symbol = inttable.add_string(yytext); return (INT_CONST); } 
+{STR_CONST}		{ cool_yylval.symbol = inttable.add_string(yytext); return (STR_CONST); } 
  
-
-
 
 %%
