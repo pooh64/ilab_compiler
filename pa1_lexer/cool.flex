@@ -42,6 +42,8 @@ extern YYSTYPE cool_yylval;
 /*
  *  Add Your own definitions here
  */
+ 
+int COMMENT_NESTED_DEPTH = 0;
 
 %}
 
@@ -52,15 +54,23 @@ extern YYSTYPE cool_yylval;
  * Define names for regular expressions here.
  */
  
-COMMENT_TYPE1		--.*\n
-COMMENT_TYPE2		\(\*(.|(\\\n))*\*\)
+NEWLINE			\n
+SPACECHAR		[ \n\f\r\t\v]*
+NULLCHAR		\0
+COMMENT_SIMPLE		--.*
+
+
+STRING_CONST_BEG	\"
+COMMENT_NESTED_BEG	\(\*
+NESTED_UNMATCHED	\*\)
+%x STRING_CONST
+%x COMMENT_NESTED
+
 
 ASSIGN			<-
 DARROW          	=>
 LE			<=
-
 SINGLE_CHAR_OPERATOR	[;{}(,):@.+\-*\/~<=]
-
 
 CASE			(?i:case)
 CLASS			(?i:class)
@@ -83,22 +93,32 @@ WHILE			(?i:while)
 true			t(?i:rue)
 false			f(?i:alse)
 
-
 TYPEID			[A-Z][a-zA-Z0-9_]*
 OBJECTID		[a-z][a-zA-Z0-9_]*
-
 INT_CONST		[0-9]+
-STR_CONST		\".*\"
 
 
 %%
+	
+{NESTED_UNMATCHED}	{ cool_yylval.error_msg = strdup("Unmatched *)"); return (ERROR); }  
 
- /*
-  *  Nested comments
-  */
 
-{COMMENT_TYPE1}		
-{COMMENT_TYPE2}
+{COMMENT_NESTED_BEG}	{ COMMENT_NESTED_DEPTH = 1; BEGIN(COMMENT_NESTED); 	}
+<COMMENT_NESTED>\/\*	;
+<COMMENT_NESTED>\/\(	;
+<COMMENT_NESTED>\/\)	;
+<COMMENT_NESTED>\*\)	{ if (--COMMENT_NESTED_DEPTH == 0) BEGIN(INITIAL); 	}
+<COMMENT_NESTED>\(\*	COMMENT_NESTED_DEPTH++;
+<COMMENT_NESTED>\n	curr_lineno++;
+<COMMENT_NESTED>(.)	;
+<COMMENT_NESTED><<EOF>> { BEGIN(INITIAL); cool_yylval.error_msg = strdup("EOF in comment"); return (ERROR);}
+  
+  
+  
+{NEWLINE}		curr_lineno++;
+{SPACECHAR}
+{NULLCHAR}		{ cool_yylval.error_msg = strdup("\000"); return (ERROR);}
+{COMMENT_SIMPLE}
 
  /*
   *  The multiple-character operators.
@@ -147,8 +167,7 @@ STR_CONST		\".*\"
 {TYPEID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (TYPEID);	} 
 {OBJECTID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (OBJECTID);	} 
 
-{INT_CONST}		{ cool_yylval.symbol = inttable.add_string(yytext); return (INT_CONST); } 
-{STR_CONST}		{ cool_yylval.symbol = inttable.add_string(yytext); return (STR_CONST); } 
+{INT_CONST}		{ cool_yylval.symbol = inttable.add_string(yytext); return (INT_CONST); }
  
 
 %%
