@@ -39,10 +39,7 @@ extern int verbose_flag;
 
 extern YYSTYPE cool_yylval;
 
-/*
- *  Add Your own definitions here
- */
- 
+
 int COMMENT_NESTED_DEPTH = 0;
 char *TMP_STRING = NULL;
 char STRING_ERR_FLAG = 0;
@@ -124,10 +121,11 @@ INT_CONST		[0-9]+
 <STRING_CONST>\\\"	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\"",  TMP_STRING); }
 <STRING_CONST>\\\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains escaped null character"); }
 
-<STRING_CONST>\"	{ BEGIN(INITIAL); if (STRING_ERR_FLAG) { free(TMP_STRING); 						  	return (ERROR); }  \
-			if (strlen(TMP_STRING) > 1024) { free(TMP_STRING); cool_yylval.error_msg = strdup("String constant too long"); 	return (ERROR); }; \
+<STRING_CONST>\"	{ BEGIN(INITIAL); if (STRING_ERR_FLAG) 							    { free(TMP_STRING); return (ERROR); }  	\
+			if (strlen(TMP_STRING) >= MAX_STR_CONST) \
+			{ free(TMP_STRING); cool_yylval.error_msg = strdup("String constant too long"); 				return (ERROR); }; 	\
 			cool_yylval.symbol = inttable.add_string(TMP_STRING); free(TMP_STRING); 					return (STR_CONST); }
-<STRING_CONST>\n	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("Unterminated string constant"); 	\
+<STRING_CONST>\n	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("Unterminated string constant"); 				   	\
 			curr_lineno++; 													return (ERROR); }
 <STRING_CONST><<EOF>>	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("EOF in string constant"); 			return (ERROR); }
 <STRING_CONST>\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains null character");}
