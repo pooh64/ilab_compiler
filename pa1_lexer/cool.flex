@@ -52,23 +52,17 @@ char STRING_ERR_FLAG = 0;
 %option yylineno
 %option noyywrap
 
-/*
- * Define names for regular expressions here.
- */
- 
+
 NEWLINE			\n
 SPACECHAR		[ \n\f\r\t\v]*
-NULLCHAR		\0
-UNDERSCORE		_
 COMMENT_SIMPLE		--.*
-
 
 STRING_CONST_BEG	\"
 COMMENT_NESTED_BEG	\(\*
 NESTED_UNMATCHED	\*\)
+
 %x STRING_CONST
 %x COMMENT_NESTED
-
 
 ASSIGN			<-
 DARROW          	=>
@@ -104,12 +98,11 @@ INT_CONST		[0-9]+
 %%
 
 {NEWLINE}		curr_lineno++;
-{SPACECHAR}
-{UNDERSCORE}		{ BEGIN(INITIAL); cool_yylval.error_msg = strdup("_"); return (ERROR); }
-{NULLCHAR}		{ cool_yylval.error_msg = strdup("\000"); return (ERROR);}
-{COMMENT_SIMPLE}	
-{NESTED_UNMATCHED}	{ cool_yylval.error_msg = strdup("Unmatched *)"); return (ERROR); }  
+{SPACECHAR}		;
+{COMMENT_SIMPLE}	;
 
+ /* Nested comments */
+{NESTED_UNMATCHED}	{ cool_yylval.error_msg = strdup("Unmatched *)"); return (ERROR); }  
 {COMMENT_NESTED_BEG}	{ COMMENT_NESTED_DEPTH = 1; BEGIN(COMMENT_NESTED); 	}
 <COMMENT_NESTED>\\\*	;
 <COMMENT_NESTED>\\\(	;
@@ -120,7 +113,7 @@ INT_CONST		[0-9]+
 <COMMENT_NESTED>(.)	;
 <COMMENT_NESTED><<EOF>> { BEGIN(INITIAL); cool_yylval.error_msg = strdup("EOF in comment"); return (ERROR); }
 
-
+ /* Strings */
 {STRING_CONST_BEG}	{ STRING_ERR_FLAG = 0; TMP_STRING = (char*) calloc(1, sizeof(char)); BEGIN(STRING_CONST); }
 <STRING_CONST>\\\n	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\n", TMP_STRING); curr_lineno++; }
 <STRING_CONST>\\b	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\b", TMP_STRING); }
@@ -131,31 +124,28 @@ INT_CONST		[0-9]+
 <STRING_CONST>\\\"	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\"",  TMP_STRING); }
 <STRING_CONST>\\\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains escaped null character"); }
 
-<STRING_CONST>\"	{ BEGIN(INITIAL); if (STRING_ERR_FLAG) { free(TMP_STRING); return (ERROR); } \
-			cool_yylval.symbol = inttable.add_string(TMP_STRING); free(TMP_STRING); return (STR_CONST); }
+<STRING_CONST>\"	{ BEGIN(INITIAL); if (STRING_ERR_FLAG) { free(TMP_STRING); 						  	return (ERROR); }  \
+			if (strlen(TMP_STRING) > 1024) { free(TMP_STRING); cool_yylval.error_msg = strdup("String constant too long"); 	return (ERROR); }; \
+			cool_yylval.symbol = inttable.add_string(TMP_STRING); free(TMP_STRING); 					return (STR_CONST); }
 <STRING_CONST>\n	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("Unterminated string constant"); 	\
-			curr_lineno++; printf("\\now:%s\n", TMP_STRING);	return (ERROR); }
-<STRING_CONST><<EOF>>	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("EOF in string constant"); return (ERROR); }
+			curr_lineno++; 													return (ERROR); }
+<STRING_CONST><<EOF>>	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("EOF in string constant"); 			return (ERROR); }
 <STRING_CONST>\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains null character");}
 <STRING_CONST>[^\"\n\0\\]	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s%s", TMP_STRING, yytext);}
 <STRING_CONST>(\\.)	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s%c", TMP_STRING, yytext[1]);}
 
 
- /*
-  *  The multiple-character operators.
-  */
-
+ /* Multichar operators */
 {ASSIGN}		{ return (ASSIGN); 	}
 {DARROW}		{ return (DARROW); 	}
 {LE}			{ return (LE); 		}
 
+
+ /* Single char operator */
 {SINGLE_CHAR_OPERATOR}	{ return (*yytext);	}
 
- /*
-  * Keywords are case-insensitive except for the values true and false,
-  * which must begin with a lower-case letter.
-  */
 
+ /* Keywords */
 {CASE}			{ return (CASE);	}
 {CLASS}			{ return (CLASS);	}
 {ELSE}			{ return (ELSE);	}
@@ -176,19 +166,15 @@ INT_CONST		[0-9]+
 {true}			{ cool_yylval.boolean = true;  	return (BOOL_CONST); }	
 {false}			{ cool_yylval.boolean = false; 	return (BOOL_CONST); }
 
-
-
- /*
-  *  String constants (C syntax)
-  *  Escape sequence \c is accepted for all characters c. Except for 
-  *  \n \t \b \f, the result is c.
-  *
-  */
-  
+ /* Names */
 {TYPEID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (TYPEID);	} 
 {OBJECTID}		{ cool_yylval.symbol = inttable.add_string(yytext); return (OBJECTID);	} 
 
+ /* Integer */
 {INT_CONST}		{ cool_yylval.symbol = inttable.add_string(yytext); return (INT_CONST); }
- 
+
+ /* Other chars */
+.|[:cntrl:]	{ BEGIN(INITIAL); cool_yylval.error_msg = strdup(yytext); return (ERROR); }
+
 
 %%
