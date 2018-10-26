@@ -120,15 +120,25 @@ INT_CONST		[0-9]+
 <COMMENT_NESTED>(.)	;
 <COMMENT_NESTED><<EOF>> { BEGIN(INITIAL); cool_yylval.error_msg = strdup("EOF in comment"); return (ERROR); }
 
-{STRING_CONST_BEG}	{ STRING_ERR_FLAG = 0; TMP_STRING = (char*) calloc(1, sizeof(char)); BEGIN(STRING_CONST); };
-<STRING_CONST>\\\n	{ if (!STRING_ERR_FLAG); asprintf(&TMP_STRING, "%s\n", TMP_STRING);}
+
+{STRING_CONST_BEG}	{ STRING_ERR_FLAG = 0; TMP_STRING = (char*) calloc(1, sizeof(char)); BEGIN(STRING_CONST); }
+<STRING_CONST>\\\n	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\n", TMP_STRING); curr_lineno++; }
+<STRING_CONST>\\b	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\b", TMP_STRING); }
+<STRING_CONST>\\t	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\t", TMP_STRING); }
+<STRING_CONST>\\f	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\f", TMP_STRING); }
+<STRING_CONST>\\n	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\n", TMP_STRING); }
+<STRING_CONST>\\\\	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\\", TMP_STRING); } 
 <STRING_CONST>\\\"	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s\"",  TMP_STRING); }
-<STRING_CONST>\"	{ BEGIN(INITIAL); if (STRING_ERR_FLAG) { free(TMP_STRING); 						return (ERROR); } \
-			cool_yylval.symbol = inttable.add_string(TMP_STRING); free(TMP_STRING); 				return (STR_CONST); }
-<STRING_CONST>\n	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("Unterminated string constant"); 	return (ERROR); }
-<STRING_CONST><<EOF>>	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("EOF in string constant"); 		return (ERROR); }
-<STRING_CONST>\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains null character"); }
-<STRING_CONST>[^\"\n\0\\]*(\\[^\n\"])*	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s%s", TMP_STRING, yytext); } 
+<STRING_CONST>\\\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains escaped null character"); }
+
+<STRING_CONST>\"	{ BEGIN(INITIAL); if (STRING_ERR_FLAG) { free(TMP_STRING); return (ERROR); } \
+			cool_yylval.symbol = inttable.add_string(TMP_STRING); free(TMP_STRING); return (STR_CONST); }
+<STRING_CONST>\n	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("Unterminated string constant"); 	\
+			curr_lineno++; printf("\\now:%s\n", TMP_STRING);	return (ERROR); }
+<STRING_CONST><<EOF>>	{ BEGIN(INITIAL); free(TMP_STRING); cool_yylval.error_msg = strdup("EOF in string constant"); return (ERROR); }
+<STRING_CONST>\0	{ STRING_ERR_FLAG = 1; cool_yylval.error_msg = strdup("String contains null character");}
+<STRING_CONST>[^\"\n\0\\]	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s%s", TMP_STRING, yytext);}
+<STRING_CONST>(\\.)	{ if (!STRING_ERR_FLAG) asprintf(&TMP_STRING, "%s%c", TMP_STRING, yytext[1]);}
 
 
  /*
