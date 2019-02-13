@@ -1,0 +1,6 @@
+/bin
+/handouts
+core
+parser
+grading
+*.o
