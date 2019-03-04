@@ -160,8 +160,7 @@
     /* 
     Save the root of the abstract syntax tree in a global variable.
     */
-    program	: class_list	{ @$ = @1; ast_root = program($1); }
-    ;
+    program: class_list	{ @$ = @1; ast_root = program($1); };
     
     class_list:
     class
@@ -179,11 +178,10 @@
     
     /* Feature list may be empty, but no empty features in list. */
     feature_list:
-    /* empty */
-    { $$ = nil_Features(); }
-    | feature              
+    /* empty */ { $$ = nil_Features(); }
+    | feature ';'         
     { $$ = single_Features($1); }
-    | feature_list feature 
+    | feature_list feature ';'
     { $$ = append_Features($1, single_Features($2)); };
     
     feature:
@@ -247,14 +245,16 @@
     { $$ = static_dispatch($1, $3, $5, $7); }
     | expression '.' OBJECTID '(' expression_list ')'
     { $$ = dispatch($1, $3, $5); }
+    | OBJECTID '(' expression_list ')'
+    { $$ = dispatch(object(idtable.add_string("self")), $1, $3); }
     | IF expression THEN expression ELSE expression FI
     { $$ = cond($2, $4, $6); }
     | WHILE expression LOOP expression POOL
     { $$ = loop($2, $4); }
     | '{' expression_block '}'
     { $$ = block($2); }
-    | expression_let
-    { $$ = $1; }
+    | LET expression_let
+    { $$ = $2; }
     | CASE expression OF expression_case_list ESAC
     { $$ = typcase($2, $4); }
     | NEW TYPEID
