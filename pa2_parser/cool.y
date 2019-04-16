@@ -182,6 +182,8 @@
         stringtable.add_string(curr_filename)); }
     | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); };
+    | error ';'
+    {};
 
     /* Feature list may be empty, but no empty features in list. */
     feature_list:
@@ -192,14 +194,14 @@
     { $$ = append_Features($1, single_Features($2)); };
 
     feature:
-/*    OBJECTID '(' formal_list ')' ':' TYPEID '{' '}'
-    {  my_yyerror("syntax error"); } */
-    | OBJECTID '(' formal_list ')' ':' TYPEID '{' expression '}'
+    OBJECTID '(' formal_list ')' ':' TYPEID '{' expression '}'
     { $$ = method($1, $3, $6, $8); }
     | OBJECTID ':' TYPEID ASSIGN expression
     { $$ = attr($1, $3, $5); };
     | OBJECTID ':' TYPEID
     { $$ = attr($1, $3, no_expr()); };
+    | error
+    {};
 
     formal_list:
     /* empty */
@@ -222,7 +224,7 @@
     { $$ = append_Expressions($1, single_Expressions($3)); };
 
     expression_block:
-    | expression ';'
+    expression ';'
     { $$ = single_Expressions($1); }
     | expression_block expression ';'
     { $$ = append_Expressions($1, single_Expressions($2)); }
@@ -234,6 +236,8 @@
     { $$ = let($1, $3, no_expr() ,$5); }
     | OBJECTID ':' TYPEID ASSIGN expression IN expression
     { $$ = let($1, $3, $5 , $7); }
+    | OBJECTID ':' TYPEID ASSIGN error IN expression
+    {}
     | OBJECTID ':' TYPEID ',' expression_let
     { $$ = let($1, $3, no_expr(), $5); }
     | OBJECTID ':' TYPEID ASSIGN expression ',' expression_let
